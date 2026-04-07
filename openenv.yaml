@@ -1,0 +1,79 @@
+name: rocket-landing-env
+version: "1.0.0"
+description: >
+  A real-world-inspired autonomous rocket landing environment.
+  An AI agent must guide a descending rocket to a safe landing
+  by controlling thrust, stabilisation, and emergency burn actions
+  across a sequence of steps under stochastic wind and engine failures.
+
+author: Jainam Dedhia, Maher Dhami, Tirth Shah
+license: MIT
+
+environment:
+  class: RocketLandingEnv
+  module: environment
+
+api:
+  reset: reset
+  step: step
+  state: state
+
+observation_space:
+  type: object
+  properties:
+    height:        { type: number, description: "Altitude of the rocket in metres" }
+    velocity:      { type: number, description: "Vertical velocity (negative = descending)" }
+    fuel:          { type: number, description: "Remaining fuel fraction [0, 1]" }
+    engine_status: { type: string, enum: [normal, failure] }
+    wind:          { type: number, description: "Lateral wind speed in m/s" }
+    step:          { type: integer, description: "Current step index" }
+    last_action:   { type: string, nullable: true }
+
+action_space:
+  type: object
+  properties:
+    decision:
+      type: string
+      enum:
+        - increase_thrust
+        - decrease_thrust
+        - maintain
+        - stabilize
+        - emergency_burn
+
+reward:
+  type: number
+  range: [0.0, 1.0]
+  description: >
+    Per-step reward based on situational correctness of the chosen action.
+    A landing bonus of +1.0 (capped) is applied at the terminal step
+    if height < 10 and -3 ≤ velocity ≤ 0.
+
+tasks:
+  - name: easy
+    description: "Agent selects a valid action from the action space."
+    grader: task_easy
+    module: tasks
+    score_range: [0.0, 1.0]
+
+  - name: medium
+    description: "Agent applies height-aware thrust decisions."
+    grader: task_medium
+    module: tasks
+    score_range: [0.0, 1.0]
+
+  - name: hard
+    description: "Agent handles engine failure, high wind, and near-zero velocity simultaneously."
+    grader: task_hard
+    module: tasks
+    score_range: [0.0, 1.0]
+
+inference:
+  script: inference.py
+  runtime_limit_minutes: 20
+  resources:
+    vcpu: 2
+    memory_gb: 8
+
+docker:
+  dockerfile: Dockerfile
