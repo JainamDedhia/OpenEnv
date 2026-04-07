@@ -1,173 +1,164 @@
 """
-inference.py — Baseline inference script for Rocket Landing OpenEnv.
+inference.py — Baseline LLM inference script for Rocket Landing OpenEnv.
 
-Stdout format (strict — do not modify field names or order):
+Required stdout format:
     [START]
     [STEP] step=<int> decision=<str> reward=<float> reason=<str>
     [END] total_reward=<float>
 
-Environment variables required:
-    API_BASE_URL   Base URL of the OpenAI-compatible LLM endpoint
-    MODEL_NAME     Model identifier (e.g. "openai/gpt-4o-mini")
-    HF_TOKEN       Hugging Face / API key passed as the bearer token
+Environment variables:
+    API_BASE_URL   OpenAI-compatible base URL
+    MODEL_NAME     Model identifier
+    HF_TOKEN       Bearer token / API key
 """
 
+from __future__ import annotations
 import os
 import json
 import sys
 from openai import OpenAI
 from environment import RocketLandingEnv, Action
 
-# ────────────────────────────────────────────────────────────────────────────
-# 1. Configuration — read from environment variables (required by spec)
-# ────────────────────────────────────────────────────────────────────────────
+
+# ── Config ────────────────────────────────────────────────────────────────────
+
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://openrouter.ai/api/v1")
 MODEL_NAME   = os.environ.get("MODEL_NAME",   "openai/gpt-4o-mini")
-HF_TOKEN     = os.environ.get("HF_TOKEN",     "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")
+HF_TOKEN     = os.environ.get("HF_TOKEN",     "")
 
 if not HF_TOKEN:
     print(
-        "WARNING: HF_TOKEN is not set. "
-        "Set the HF_TOKEN environment variable before running.",
+        "ERROR: HF_TOKEN environment variable is not set.\n"
+        "Run: export HF_TOKEN='your-api-key'",
         file=sys.stderr,
     )
+    sys.exit(1)
 
-# ────────────────────────────────────────────────────────────────────────────
-# 2. OpenAI-compatible client (required by spec)
-# ────────────────────────────────────────────────────────────────────────────
-client = OpenAI(
-    base_url=API_BASE_URL,
-    api_key=HF_TOKEN,
-)
+client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
 
-# ────────────────────────────────────────────────────────────────────────────
-# 3. Helper — build the strategic prompt
-# ────────────────────────────────────────────────────────────────────────────
-def build_prompt(obs, history: list) -> str:
+
+# ── Prompt builder ────────────────────────────────────────────────────────────
+
+def build_prompt(obs: object, history: list[dict]) -> str:
     history_str = "\n".join(
-        f"Step {h['step']}: {h['action']} -> reward={h['reward']:.2f}"
-        for h in history[-3:]
-    ) or "None"
+        f"  Step {h['step']}: action={h['action']}  reward={h['reward']:.4f}"
+        for h in history[-5:]
+    ) or "  (no history yet)"
 
-    repeat_warning = ""
-    if len(history) >= 2 and history[-1]["action"] == history[-2]["action"]:
-        repeat_warning = "WARNING: You repeated the same action twice. You MUST change strategy now."
+    return f"""You are an autonomous rocket landing controller.
 
-    return f"""You are an advanced autonomous rocket landing AI controller.
+GOAL: Land the rocket safely.
+  Safe landing = height <= 2.0 AND velocity between -3.0 and 0.5
 
-MISSION GOAL:
-- Guide the rocket to land safely: height < 10, velocity between -3 and 0.
-- Conserve fuel and avoid engine failures.
+PHYSICS (understand this):
+  Each step: velocity += thrust - 1.5 (gravity)
+             height  += velocity
+  increase_thrust adds +3.0 m/s to velocity (braking = good near ground)
+  decrease_thrust removes 1.0 m/s (faster fall = bad near ground)
+  emergency_burn  adds +5.0 m/s (use ONLY when engine_status = failure)
+  stabilize       counteracts wind (use when |wind| > 6)
+  maintain        no change
 
-VALID ACTIONS (choose exactly one):
+VALID ACTIONS (pick exactly one):
   increase_thrust | decrease_thrust | maintain | stabilize | emergency_burn
 
-DECISION PRIORITY (follow in order):
-1. engine_status == "failure"  → emergency_burn
-2. abs(wind) > 6               → stabilize
-3. height > 160                → decrease_thrust
-4. height < 60                 → increase_thrust
-5. abs(velocity) < 5           → maintain
-6. otherwise                   → decrease_thrust
-
-CRITICAL RULES:
-- NEVER repeat the same action consecutively — you will be penalised.
-- After emergency_burn, switch to stabilize or maintain.
-- Think step by step before deciding.
+DECISION RULES (follow in priority order):
+  1. engine_status == "failure"  → emergency_burn
+  2. |wind| > 6                  → stabilize
+  3. height < 55 AND velocity < -3  → increase_thrust  (start braking early!)
+  4. velocity between -3 and 0   → maintain  (perfect descent speed, hold it)
+  5. height >= 55                → maintain  (conserve fuel at high altitude)
+  6. otherwise                   → increase_thrust
 
 CURRENT STATE:
-  Height:         {obs.height:.2f} m
-  Velocity:       {obs.velocity:.2f} m/s
-  Fuel:           {obs.fuel:.2f}
-  Engine status:  {obs.engine_status}
-  Wind:           {obs.wind:.2f} m/s
-  Step:           {obs.step} / 6
-  Last action:    {obs.last_action}
+  height:         {obs.height:.2f} m
+  velocity:       {obs.velocity:.2f} m/s  (negative = descending)
+  fuel:           {obs.fuel:.2f}
+  engine_status:  {obs.engine_status}
+  wind:           {obs.wind:.2f} m/s
+  step:           {obs.step} / {obs.max_steps}
+  last_action:    {obs.last_action}
 
-RECENT HISTORY (last 3 steps):
+STEP HISTORY (last 5):
 {history_str}
 
-{repeat_warning}
-
-RESPOND WITH VALID JSON ONLY — no markdown, no extra text.
-FORMAT:
-{{"decision":"<action>","reason":"<one short sentence>","predicted_next":{{"height_trend":"up|down","velocity_trend":"faster|slower"}}}}
+RESPOND WITH JSON ONLY. No markdown, no extra text.
+{{"decision": "<action>", "reason": "<one sentence explanation>"}}
 """
 
 
-# ────────────────────────────────────────────────────────────────────────────
-# 4. Helper — call the LLM and parse the response robustly
-# ────────────────────────────────────────────────────────────────────────────
-FALLBACK_ACTION = "maintain"
+# ── LLM caller ────────────────────────────────────────────────────────────────
 
-def get_action(obs, history: list) -> dict:
+FALLBACK_SEQUENCE = [
+    "increase_thrust", "maintain", "stabilize",
+    "maintain", "increase_thrust", "maintain",
+]
+
+def get_action(obs: object, history: list[dict], fallback_idx: int) -> tuple[dict, int]:
     prompt = build_prompt(obs, history)
-
     try:
         response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.0,
-            max_tokens=256,
+            max_tokens=200,
         )
         content = response.choices[0].message.content.strip()
 
-        # Strip markdown fences if present
+        # Strip markdown fences
         if "```" in content:
             parts = content.split("```")
             content = parts[1] if len(parts) > 1 else parts[0]
-            if content.startswith("json"):
+            if content.lower().startswith("json"):
                 content = content[4:]
 
-        # Extract the first valid JSON object
+        # Extract JSON object
         start = content.find("{")
         end   = content.rfind("}") + 1
         if start == -1 or end == 0:
-            raise ValueError("No JSON object found in response")
+            raise ValueError("No JSON object in response")
 
         parsed = json.loads(content[start:end])
 
         if "decision" not in parsed:
-            raise ValueError("Missing 'decision' key in JSON response")
+            raise ValueError("Missing 'decision' key")
 
-        # Guard against hallucinated actions
         if parsed["decision"] not in RocketLandingEnv.VALID_ACTIONS:
-            raise ValueError(f"Unknown action: {parsed['decision']}")
+            raise ValueError(f"Invalid action: {parsed['decision']}")
 
-        return parsed
+        return parsed, fallback_idx
 
     except Exception as exc:
-        print(f"[WARN] LLM parse error: {exc} — using fallback action '{FALLBACK_ACTION}'",
-              file=sys.stderr)
+        print(f"[WARN] LLM error: {exc}", file=sys.stderr)
+        fallback_action = FALLBACK_SEQUENCE[fallback_idx % len(FALLBACK_SEQUENCE)]
+        fallback_idx += 1
         return {
-            "decision": FALLBACK_ACTION,
-            "reason": "fallback due to parse error",
-            "predicted_next": {"height_trend": "down", "velocity_trend": "slower"},
-        }
+            "decision": fallback_action,
+            "reason":   f"fallback-{fallback_action} due to parse error",
+        }, fallback_idx
 
 
-# ────────────────────────────────────────────────────────────────────────────
-# 5. Main loop
-# ────────────────────────────────────────────────────────────────────────────
+# ── Main ──────────────────────────────────────────────────────────────────────
+
 def main():
-    env     = RocketLandingEnv()
-    obs     = env.reset()
-    done    = False
+    env  = RocketLandingEnv()
+    obs  = env.reset()
+    done = False
+
     total_reward = 0.0
     history: list[dict] = []
+    fallback_idx = 0
 
-    # Required by spec — must be the very first line of stdout
     print("[START]")
 
     while not done:
-        output = get_action(obs, history)
+        output, fallback_idx = get_action(obs, history, fallback_idx)
 
-        action              = Action(decision=output["decision"])
+        action = Action(decision=output["decision"])
         obs, reward, done, _ = env.step(action)
 
         total_reward += reward.score
 
-        # Required [STEP] log format — field names must match exactly
         print(
             f"[STEP] "
             f"step={obs.step} "
@@ -182,7 +173,6 @@ def main():
             "reward": reward.score,
         })
 
-    # Required [END] log format — must be the very last line of stdout
     print(f"[END] total_reward={round(total_reward, 4)}")
 
 

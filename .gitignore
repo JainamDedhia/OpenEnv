@@ -1,0 +1,58 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+myenv/
+venv/
+.env/
+.envrc
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# Environment variables
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Temporary files
+*.tmp
+*.bak
+
+# Windows junk
+desktop.ini
+
+# Docker (optional)
+*.tar
+
+# Ignore compiled Python
+*.so
+
+# Ignore local test artifacts
+*.out
+
+# Keep uv.lock (IMPORTANT → DO NOT IGNORE)
+# uv.lock
+
+# Keep pyproject.toml (IMPORTANT)
+# pyproject.toml
+
+# Keep openenv.yaml (IMPORTANT)
+# openenv.yaml
