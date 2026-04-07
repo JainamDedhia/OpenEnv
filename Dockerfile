@@ -23,4 +23,4 @@ ENV MODEL_NAME="openai/gpt-4o-mini"
 ENV HF_TOKEN=""
 
 # ── Start FastAPI server ───────────────────────────────────
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"]
