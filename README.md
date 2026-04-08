@@ -1,3 +1,14 @@
+---
+title: Rocket Landing OpenEnv
+emoji: 🚀
+colorFrom: blue
+colorTo: red
+sdk: docker
+pinned: false
+tags:
+  - openenv
+---
+
 # 🚀 Rocket Landing OpenEnv
 
 An **OpenEnv-compliant** reinforcement learning environment where an AI agent
