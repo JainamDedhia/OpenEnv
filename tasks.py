@@ -257,3 +257,11 @@ TASKS = {
         "grader":      task_hard,
     },
 }
+
+# ── Explicit grader export (for OpenEnv validator discovery) ──────────────────
+
+GRADERS = {
+    "task_easy":   task_easy,
+    "task_medium": task_medium,
+    "task_hard":   task_hard,
+}
