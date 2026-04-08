@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from environment import RocketLandingEnv, Action, Observation, Reward
-from tasks import TASKS, run_task_episode
+from tasks import TASKS,GRADERS, run_task_episode
 
 app = FastAPI(
     title="Rocket Landing OpenEnv",
