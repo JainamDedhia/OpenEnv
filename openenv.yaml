@@ -70,24 +70,28 @@ reward:
 tasks:
   - name: easy
     description: "Agent selects a valid and contextually appropriate action from the action space."
-    grader: task_easy
-    module: tasks
+    grader:
+      name: task_easy
+      module: tasks
     score_range: [0.0, 1.0]
     endpoint: /tasks/easy/run
 
   - name: medium
     description: "Agent applies height-aware and velocity-aware thrust decisions."
-    grader: task_medium
-    module: tasks
+    grader:
+      name: task_medium
+      module: tasks
     score_range: [0.0, 1.0]
     endpoint: /tasks/medium/run
 
   - name: hard
     description: "Agent handles engine failure, high wind, low altitude, and velocity management simultaneously."
-    grader: task_hard
-    module: tasks
+    grader:
+      name: task_hard
+      module: tasks
     score_range: [0.0, 1.0]
     endpoint: /tasks/hard/run
+
 
 inference:
   script: inference.py
