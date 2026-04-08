@@ -14,7 +14,6 @@ API_BASE_URL = os.environ.get("API_BASE_URL", "https://openrouter.ai/api/v1")
 MODEL_NAME   = os.environ.get("MODEL_NAME",   "openai/gpt-4o-mini")
 HF_TOKEN     = os.getenv("HF_TOKEN")
 
-
 TASK_NAME  = "rocket-landing"
 BENCHMARK  = "rocket-landing-openenv"
 MAX_STEPS  = 15
