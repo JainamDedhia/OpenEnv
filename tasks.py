@@ -244,10 +244,14 @@ TASKS = {
     "easy": {
         "description": "Agent selects a valid and contextually appropriate action from the action space.",
         "grader":      task_easy,
+        "grader_name": "task_easy",
+        "module":      "tasks",
     },
     "medium": {
         "description": "Agent applies height-aware and velocity-aware thrust decisions.",
         "grader":      task_medium,
+        "grader_name": "task_medium",
+        "module":      "tasks",
     },
     "hard": {
         "description": (
@@ -255,13 +259,15 @@ TASKS = {
             "and velocity management simultaneously."
         ),
         "grader":      task_hard,
+        "grader_name": "task_hard",
+        "module":      "tasks",
     },
 }
 
-# ── Explicit grader export (for OpenEnv validator discovery) ──────────────────
+# ── Grader registry keyed by task name (matches task names exactly) ───────────
 
 GRADERS = {
-    "task_easy":   task_easy,
-    "task_medium": task_medium,
-    "task_hard":   task_hard,
+    "easy":   task_easy,
+    "medium": task_medium,
+    "hard":   task_hard,
 }

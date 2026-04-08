@@ -62,12 +62,33 @@ def list_tasks():
     return {
         "tasks": [
             {
-                "name": name,
+                "name":        name,
                 "description": meta["description"],
+                "grader":      meta["grader_name"],
+                "module":      meta["module"],
                 "score_range": [0.0, 1.0],
+                "endpoint":    f"/tasks/{name}/run",
             }
             for name, meta in TASKS.items()
         ]
+    }
+
+
+@app.get("/tasks/{task_name}")
+def get_task(task_name: str):
+    if task_name not in TASKS:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Task '{task_name}' not found. Available: {list(TASKS.keys())}",
+        )
+    meta = TASKS[task_name]
+    return {
+        "name":        task_name,
+        "description": meta["description"],
+        "grader":      meta["grader_name"],
+        "module":      meta["module"],
+        "score_range": [0.0, 1.0],
+        "endpoint":    f"/tasks/{task_name}/run",
     }
 
 
@@ -80,7 +101,13 @@ def run_task(task_name: str):
         )
     try:
         score = run_task_episode(task_name)
-        return {"task": task_name, "score": score, "score_range": [0.0, 1.0]}
+        return {
+            "task":        task_name,
+            "score":       score,
+            "score_range": [0.0, 1.0],
+            "grader":      TASKS[task_name]["grader_name"],
+            "module":      TASKS[task_name]["module"],
+        }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
