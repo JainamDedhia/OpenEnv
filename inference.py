@@ -18,7 +18,7 @@ TASK_NAME  = "rocket-landing"
 BENCHMARK  = "rocket-landing-openenv"
 MAX_STEPS  = 15
 SUCCESS_SCORE_THRESHOLD = 0.6
-MAX_TOTAL_REWARD = MAX_STEPS  # used for score normalisation
+MAX_TOTAL_REWARD = MAX_STEPS
 
 if not HF_TOKEN:
     raise ValueError("HF_TOKEN environment variable is required.")

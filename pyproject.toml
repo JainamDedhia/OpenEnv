@@ -2,7 +2,7 @@
 name = "rocket-landing-env"
 version = "0.1.0"
 description = "RL environment for controlled rocket landing"
-authors = [{name = "Jainam"}]
+authors = [{name = "Jainam Dedhia, Maher Dhami, Tirth Shah"}]
 dependencies = [
     "fastapi",
     "uvicorn[standard]",
@@ -11,9 +11,6 @@ dependencies = [
     "python-multipart",
     "openenv-core>=0.2.0"
 ]
-
-[project.scripts]
-server = "server.app:main"
 
 [build-system]
 requires = ["setuptools"]

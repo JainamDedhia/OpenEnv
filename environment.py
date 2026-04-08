@@ -65,8 +65,8 @@ class RocketLandingEnv:
         self.last_action = None
 
         self._state = {
-            "height":        float(random.uniform(50, 80)),   # achievable range
-            "velocity":      float(random.uniform(-12, -6)),  # moderate descent
+            "height":        float(random.uniform(50, 80)),
+            "velocity":      float(random.uniform(-12, -6)),
             "fuel":          float(random.uniform(0.7, 1.0)),
             "engine_status": "normal",
             "wind":          float(random.uniform(-5, 5)),
@@ -91,7 +91,6 @@ class RocketLandingEnv:
         fuel = s["fuel"]
         wind = s["wind"]
 
-        # ── Apply action ──────────────────────────────────────────────────
         thrust = 0.0
         fuel_cost = 0.0
 
@@ -109,12 +108,10 @@ class RocketLandingEnv:
                 fuel_cost = self.FUEL_PER_STEP * 2
                 s["engine_status"] = "normal"
             else:
-                # emergency_burn when engine is fine → still applies thrust
                 thrust    = self.THRUST_EMERG
                 fuel_cost = self.FUEL_PER_STEP * 2
 
         elif action.decision == "stabilize":
-            # Counters wind component; slight upward assist
             thrust    = max(0.0, -wind * 0.3) + 0.5
             fuel_cost = self.FUEL_PER_STEP * 0.5
 
@@ -122,28 +119,22 @@ class RocketLandingEnv:
             thrust    = 0.0
             fuel_cost = 0.0
 
-        # Fuel cap — no thrust if empty
         if fuel <= 0.0:
             thrust    = 0.0
             fuel_cost = 0.0
 
-        # ── Physics update ────────────────────────────────────────────────
-        # net acceleration = thrust (upward +) − gravity (downward)
         accel = thrust - self.GRAVITY
         v_new = v + accel * self.DT
         h_new = h + v * self.DT + 0.5 * accel * self.DT ** 2
 
         fuel_new = max(0.0, fuel - fuel_cost)
 
-        # Wind drifts slowly
         wind_new = wind + random.uniform(-0.5, 0.5)
         wind_new = max(-10.0, min(10.0, wind_new))
 
-        # Stochastic engine failure (15% per step; resolved by emergency_burn)
         if s["engine_status"] == "normal" and random.random() < 0.15:
             s["engine_status"] = "failure"
 
-        # Ground clamp
         if h_new < 0:
             h_new = 0.0
 
@@ -155,7 +146,6 @@ class RocketLandingEnv:
         self.step_count  += 1
         self.last_action  = action.decision
 
-        # ── Reward ────────────────────────────────────────────────────────
         reward_score = self._compute_reward(
             h_new, v_new, fuel_new, s["engine_status"], action.decision, wind
         )
@@ -200,38 +190,29 @@ class RocketLandingEnv:
         Reward always in [0.0, 1.0].
 
         Components (weighted):
-          40%  altitude progress  — lower = better (approaching ground safely)
+          40%  altitude progress  — lower = better
           30%  velocity quality   — slow descent near ground = better
           15%  fuel conservation
           15%  landing bonus      — perfect landing at terminal condition
         """
 
-        # ── Altitude component (0–1): prefer low but not crashed ──────────
-        # Maps h in [0, 80] → score in [1, 0] smoothly
         alt_score = max(0.0, 1.0 - (h / 80.0))
 
-        # ── Velocity component (0–1): prefer velocity near 0 when low ────
-        # Ideal: velocity in [-3, 0] near ground
         if h < 15:
-            # Near ground: penalize fast descent harshly
             ideal_v = -1.5
             v_error = abs(v - ideal_v)
             vel_score = max(0.0, 1.0 - (v_error / 10.0))
         else:
-            # Higher up: gentle descent is fine, just not too fast
             vel_score = max(0.0, 1.0 - (abs(v) / 20.0))
 
-        # ── Fuel component (0–1) ──────────────────────────────────────────
-        fuel_score = fuel  # already in [0, 1]
+        fuel_score = fuel
 
-        # ── Landing bonus (0–1): triggered when on/near ground safely ─────
         landing_bonus = 0.0
         if h <= 2.0 and -3.0 <= v <= 0.5:
             landing_bonus = 1.0
         elif h <= 5.0 and -5.0 <= v <= 0.5:
             landing_bonus = 0.6
 
-        # ── Weighted combination ──────────────────────────────────────────
         raw = (
             0.40 * alt_score
             + 0.30 * vel_score

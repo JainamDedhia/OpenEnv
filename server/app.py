@@ -3,6 +3,11 @@ app.py — FastAPI server exposing the OpenEnv HTTP API.
 """
 
 import sys
+import os
+
+# Ensure /app root is on the path regardless of how uvicorn is invoked
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel

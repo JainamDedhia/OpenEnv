@@ -21,6 +21,6 @@ COPY . .
 ENV API_BASE_URL="https://openrouter.ai/api/v1"
 ENV MODEL_NAME="openai/gpt-4o-mini"
 ENV HF_TOKEN=""
-
+ENV PYTHONPATH=/app
 # ── Start FastAPI server ───────────────────────────────────
 CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"]

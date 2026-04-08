@@ -69,7 +69,7 @@ reward:
 
 tasks:
   - name: easy
-    description: "Agent selects a valid action from the action space."
+    description: "Agent selects a valid and contextually appropriate action from the action space."
     grader: task_easy
     module: tasks
     score_range: [0.0, 1.0]

@@ -26,7 +26,6 @@ def _rule_agent_medium(obs: dict) -> str:
 
     if engine == "failure":
         return "emergency_burn"
-    # Start braking when below 55m and velocity still fast
     if h < 55 and v < -3:
         return "increase_thrust"
     if -3 <= v <= 0:
@@ -64,12 +63,10 @@ def _run_episode(agent_fn, seed_height: float, seed_velocity: float) -> float:
     """
     env = RocketLandingEnv()
 
-    # Manual seeded reset for determinism
     import random
     random.seed(42)
     obs = env.reset()
 
-    # Override with deterministic starting state
     env._state["height"]        = seed_height
     env._state["velocity"]      = seed_velocity
     env._state["fuel"]          = 0.9
@@ -95,10 +92,50 @@ def _run_episode(agent_fn, seed_height: float, seed_velocity: float) -> float:
 
 def task_easy(env: RocketLandingEnv, action: Action) -> float:
     """
-    Score 1.0 if action is valid, 0.0 otherwise.
-    Tests basic action-space compliance.
+    Graduated score based on action validity and situational appropriateness.
+    - Invalid action: 0.0
+    - Valid but passive when thrust is needed: 0.4
+    - Valid and contextually reasonable: 0.7
+    - Valid and contextually optimal: 1.0
     """
-    return 1.0 if action.decision in RocketLandingEnv.VALID_ACTIONS else 0.0
+    if action.decision not in RocketLandingEnv.VALID_ACTIONS:
+        return 0.0
+
+    s = env.state()
+    h = s["height"]
+    v = s["velocity"]
+    engine = s["engine_status"]
+
+    # Emergency situation — emergency_burn is optimal
+    if engine == "failure":
+        if action.decision == "emergency_burn":
+            return 1.0
+        if action.decision in ("increase_thrust", "stabilize"):
+            return 0.7
+        return 0.4
+
+    # Descending fast at low altitude — needs braking
+    if h < 30 and v < -4:
+        if action.decision in ("increase_thrust", "emergency_burn"):
+            return 1.0
+        if action.decision == "stabilize":
+            return 0.7
+        if action.decision == "maintain":
+            return 0.4
+        return 0.4  # decrease_thrust is counterproductive
+
+    # High altitude, gentle conditions — maintain or stabilize fine
+    if h >= 50:
+        if action.decision in ("maintain", "stabilize", "increase_thrust"):
+            return 1.0
+        if action.decision == "decrease_thrust":
+            return 0.7
+        return 0.7
+
+    # Mid altitude — any valid action acceptable, thrust preferred
+    if action.decision in ("increase_thrust", "maintain", "stabilize"):
+        return 1.0
+    return 0.7
 
 
 def task_medium(env: RocketLandingEnv, action: Action) -> float:
@@ -135,32 +172,49 @@ def task_medium(env: RocketLandingEnv, action: Action) -> float:
 def task_hard(env: RocketLandingEnv, action: Action) -> float:
     """
     Multi-factor scoring: engine failure + wind + velocity management.
+    Each sub-situation awards a bounded partial score — total clamped to [0, 1].
     """
     s = env.state()
-    score = 0.0
 
+    # Engine failure is highest priority — score it independently
     if s["engine_status"] == "failure":
         if action.decision == "emergency_burn":
-            score += 0.5
-        # else: no penalty, but no bonus
-    else:
-        if abs(s["wind"]) > 6:
-            if action.decision == "stabilize":
-                score += 0.3
-            elif action.decision in ("maintain", "increase_thrust"):
-                score += 0.15
+            return 1.0
+        if action.decision == "increase_thrust":
+            return 0.4
+        return 0.1
 
-        if s["height"] < 20 and s["velocity"] < -3:
-            if action.decision == "increase_thrust":
-                score += 0.3
-            elif action.decision == "emergency_burn":
-                score += 0.2
+    score = 0.0
 
-        if abs(s["velocity"]) <= 3:
-            if action.decision == "maintain":
-                score += 0.2
-            else:
-                score += 0.1
+    # Wind component (max 0.35)
+    if abs(s["wind"]) > 6:
+        if action.decision == "stabilize":
+            score += 0.35
+        elif action.decision in ("maintain", "increase_thrust"):
+            score += 0.15
+
+    # Altitude + velocity component (max 0.40)
+    if s["height"] < 20 and s["velocity"] < -3:
+        if action.decision == "increase_thrust":
+            score += 0.40
+        elif action.decision == "emergency_burn":
+            score += 0.30
+        elif action.decision == "maintain":
+            score += 0.10
+    elif s["height"] < 40 and s["velocity"] < -5:
+        if action.decision == "increase_thrust":
+            score += 0.30
+        elif action.decision == "maintain":
+            score += 0.10
+
+    # Velocity stability component (max 0.25)
+    if abs(s["velocity"]) <= 3:
+        if action.decision == "maintain":
+            score += 0.25
+        elif action.decision == "stabilize":
+            score += 0.15
+        else:
+            score += 0.05
 
     return round(float(max(0.0, min(score, 1.0))), 6)
 
@@ -188,7 +242,7 @@ def run_task_episode(task_name: str) -> float:
 
 TASKS = {
     "easy": {
-        "description": "Agent selects a valid action from the action space.",
+        "description": "Agent selects a valid and contextually appropriate action from the action space.",
         "grader":      task_easy,
     },
     "medium": {
