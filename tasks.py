@@ -272,3 +272,36 @@ GRADERS = {
     "medium": task_medium,
     "hard":   task_hard,
 }
+
+# --- FORCE VALIDATOR DISCOVERY (CRITICAL) ---
+
+def easy(env, action):
+    return task_easy(env, action)
+
+def medium(env, action):
+    return task_medium(env, action)
+
+def hard(env, action):
+    return task_hard(env, action)
+
+
+GRADERS = {
+    "easy": easy,
+    "medium": medium,
+    "hard": hard,
+}
+
+TASKS = {
+    "easy": {
+        "description": "Easy task",
+        "grader": easy,
+    },
+    "medium": {
+        "description": "Medium task",
+        "grader": medium,
+    },
+    "hard": {
+        "description": "Hard task",
+        "grader": hard,
+    },
+}
