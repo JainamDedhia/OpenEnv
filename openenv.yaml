@@ -68,30 +68,29 @@ reward:
     Always strictly in [0.0, 1.0].
 
 tasks:
-  - name: easy
+  - id: easy
+    difficulty: easy
+    max_steps: 15
     description: "Agent selects a valid and contextually appropriate action from the action space."
     grader:
-      name: task_easy
-      module: tasks
-    score_range: [0.0, 1.0]
-    endpoint: /tasks/easy/run
+      type: llm
+      prompt_template: "Score the rocket landing control 0.0 to 1.0 based on whether the agent selected a valid and contextually appropriate action given the current state (height, velocity, engine_status, wind). A perfect score means the action is both valid and optimal for the situation."
 
-  - name: medium
+  - id: medium
+    difficulty: medium
+    max_steps: 15
     description: "Agent applies height-aware and velocity-aware thrust decisions."
     grader:
-      name: task_medium
-      module: tasks
-    score_range: [0.0, 1.0]
-    endpoint: /tasks/medium/run
+      type: llm
+      prompt_template: "Score the rocket landing control 0.0 to 1.0 based on whether the agent applied correct height-aware and velocity-aware thrust strategy. High altitude should use maintain or gentle thrust; low altitude with fast descent requires increase_thrust. Engine failure must trigger emergency_burn."
 
-  - name: hard
+  - id: hard
+    difficulty: hard
+    max_steps: 15
     description: "Agent handles engine failure, high wind, low altitude, and velocity management simultaneously."
     grader:
-      name: task_hard
-      module: tasks
-    score_range: [0.0, 1.0]
-    endpoint: /tasks/hard/run
-
+      type: llm
+      prompt_template: "Score the rocket landing control 0.0 to 1.0 based on how well the agent handled all simultaneous challenges: engine failure (must use emergency_burn), high wind (must use stabilize), low altitude with high descent velocity (must increase_thrust), and maintaining safe velocity near ground."
 
 inference:
   script: inference.py
