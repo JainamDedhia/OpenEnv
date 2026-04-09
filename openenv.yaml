@@ -1,5 +1,8 @@
 name: rocket-landing-env
 version: "2.0.0"
+entrypoint: server.app:app        # ← ADD THIS
+type: http                         # ← ADD THIS
+spec_version: "1.0" 
 description: >
   A real-world-inspired autonomous rocket landing environment.
   An LLM agent controls thrust, stabilization, and emergency burns
@@ -91,7 +94,7 @@ tasks:
     grader:
       type: llm
       prompt_template: "Score the rocket landing control 0.0 to 1.0 based on how well the agent handled all simultaneous challenges: engine failure (must use emergency_burn), high wind (must use stabilize), low altitude with high descent velocity (must increase_thrust), and maintaining safe velocity near ground."
-      
+
 inference:
   script: inference.py
   runtime_limit_minutes: 20
