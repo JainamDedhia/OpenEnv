@@ -245,14 +245,13 @@ TASKS = {
         "description": "Agent selects a valid and contextually appropriate action from the action space.",
         "grader":      task_easy,
         "grader_name": "task_easy",
-        "module": "tasks",
+        "module":      "tasks",
     },
     "medium": {
         "description": "Agent applies height-aware and velocity-aware thrust decisions.",
         "grader":      task_medium,
         "grader_name": "task_medium",
-        "module": "tasks",
-        
+        "module":      "tasks",
     },
     "hard": {
         "description": (
@@ -261,7 +260,7 @@ TASKS = {
         ),
         "grader":      task_hard,
         "grader_name": "task_hard",
-        "module": "tasks",
+        "module":      "tasks",
     },
 }
 
@@ -271,37 +270,4 @@ GRADERS = {
     "easy":   task_easy,
     "medium": task_medium,
     "hard":   task_hard,
-}
-
-# --- FORCE VALIDATOR DISCOVERY (CRITICAL) ---
-
-def easy(env, action):
-    return task_easy(env, action)
-
-def medium(env, action):
-    return task_medium(env, action)
-
-def hard(env, action):
-    return task_hard(env, action)
-
-
-GRADERS = {
-    "easy": easy,
-    "medium": medium,
-    "hard": hard,
-}
-
-TASKS = {
-    "easy": {
-        "description": "Easy task",
-        "grader": easy,
-    },
-    "medium": {
-        "description": "Medium task",
-        "grader": medium,
-    },
-    "hard": {
-        "description": "Hard task",
-        "grader": hard,
-    },
 }
