@@ -27,6 +27,27 @@ tasks:
     description: "Agent handles engine failure, wind, low altitude simultaneously."
     grader: "tasks:task_hard"
 
+  - id: fuel_management
+    name: "Fuel Management"
+    difficulty: "medium"
+    max_steps: 15
+    description: "Agent conserves fuel while maintaining safe descent velocity."
+    grader: "tasks:task_fuel_management"
+
+  - id: wind_compensation
+    name: "Wind Compensation"
+    difficulty: "medium"
+    max_steps: 15
+    description: "Agent compensates for high wind using stabilize and thrust decisions."
+    grader: "tasks:task_wind_compensation"
+
+  - id: precision_landing
+    name: "Precision Landing"
+    difficulty: "hard"
+    max_steps: 15
+    description: "Agent achieves precise near-ground velocity control for safe touchdown."
+    grader: "tasks:task_precision_landing"
+
 api:
   base_url: "https://unknownbrain-rocket-landing-openenv.hf.space"
   reset: /reset

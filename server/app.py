@@ -22,7 +22,7 @@ app = FastAPI(
 env = RocketLandingEnv()
 
 
-# ── Required OpenEnv compliance endpoints ─────────────────────────────────────
+# ── OpenEnv compliance endpoints ──────────────────────────────────────────────
 
 @app.get("/health")
 def health_check():
@@ -35,8 +35,7 @@ def metadata():
         "name": "rocket-landing-env",
         "description": (
             "Autonomous rocket landing environment where an LLM agent controls "
-            "thrust to safely land a descending rocket within a fixed step budget, "
-            "under stochastic wind and engine-failure conditions."
+            "thrust to safely land a descending rocket within a fixed step budget."
         ),
         "version": "2.0.0",
         "author": "Jainam Dedhia, Maher Dhami, Tirth Shah",
@@ -65,14 +64,14 @@ def schema():
         "observation": {
             "type": "object",
             "properties": {
-                "height":        {"type": "number",  "description": "Altitude in metres"},
-                "velocity":      {"type": "number",  "description": "Vertical velocity (negative = descending)"},
-                "fuel":          {"type": "number",  "description": "Remaining fuel fraction [0, 1]"},
-                "engine_status": {"type": "string",  "description": "normal or failure"},
-                "wind":          {"type": "number",  "description": "Lateral wind speed in m/s"},
-                "step":          {"type": "integer", "description": "Current step index"},
-                "max_steps":     {"type": "integer", "description": "Total steps allowed"},
-                "last_action":   {"type": "string",  "description": "Last action taken"},
+                "height":        {"type": "number"},
+                "velocity":      {"type": "number"},
+                "fuel":          {"type": "number"},
+                "engine_status": {"type": "string"},
+                "wind":          {"type": "number"},
+                "step":          {"type": "integer"},
+                "max_steps":     {"type": "integer"},
+                "last_action":   {"type": "string"},
             },
         },
         "state": {
@@ -96,7 +95,7 @@ async def mcp(request: Request):
     return {"jsonrpc": "2.0", "id": None, "result": {}}
 
 
-# ── Original health / root ────────────────────────────────────────────────────
+# ── Root ──────────────────────────────────────────────────────────────────────
 
 @app.get("/")
 def root():
@@ -145,10 +144,7 @@ def list_tasks():
             "max_steps":   15,
             "description": "Agent selects a valid and contextually appropriate action from the action space.",
             "has_grader":  True,
-            "grader": {
-                "type": "llm",
-                "prompt_template": "Score the rocket landing 0.0 to 1.0 based on whether the agent selected a valid and contextually appropriate action given the current state.",
-            },
+            "grader": {"type": "llm", "prompt_template": "Score the rocket landing 0.0 to 1.0 based on action validity and context appropriateness."},
         },
         {
             "id":          "medium",
@@ -156,21 +152,39 @@ def list_tasks():
             "max_steps":   15,
             "description": "Agent applies height-aware and velocity-aware thrust decisions.",
             "has_grader":  True,
-            "grader": {
-                "type": "llm",
-                "prompt_template": "Score the rocket landing 0.0 to 1.0 based on whether the agent applied correct height-aware and velocity-aware thrust strategy.",
-            },
+            "grader": {"type": "llm", "prompt_template": "Score the rocket landing 0.0 to 1.0 based on height-aware and velocity-aware thrust strategy."},
         },
         {
             "id":          "hard",
             "difficulty":  "hard",
             "max_steps":   15,
-            "description": "Agent handles engine failure, high wind, low altitude, and velocity management simultaneously.",
+            "description": "Agent handles engine failure, high wind, low altitude simultaneously.",
             "has_grader":  True,
-            "grader": {
-                "type": "llm",
-                "prompt_template": "Score the rocket landing 0.0 to 1.0 based on how well the agent handled engine failure, high wind, and low altitude simultaneously.",
-            },
+            "grader": {"type": "llm", "prompt_template": "Score the rocket landing 0.0 to 1.0 based on handling engine failure, wind, and low altitude simultaneously."},
+        },
+        {
+            "id":          "fuel_management",
+            "difficulty":  "medium",
+            "max_steps":   15,
+            "description": "Agent conserves fuel while maintaining safe descent velocity.",
+            "has_grader":  True,
+            "grader": {"type": "llm", "prompt_template": "Score the rocket landing 0.0 to 1.0 based on fuel-efficient descent decisions."},
+        },
+        {
+            "id":          "wind_compensation",
+            "difficulty":  "medium",
+            "max_steps":   15,
+            "description": "Agent compensates for high wind using stabilize and thrust decisions.",
+            "has_grader":  True,
+            "grader": {"type": "llm", "prompt_template": "Score the rocket landing 0.0 to 1.0 based on wind compensation strategy."},
+        },
+        {
+            "id":          "precision_landing",
+            "difficulty":  "hard",
+            "max_steps":   15,
+            "description": "Agent achieves precise near-ground velocity control for safe touchdown.",
+            "has_grader":  True,
+            "grader": {"type": "llm", "prompt_template": "Score the rocket landing 0.0 to 1.0 based on precision near-ground velocity control."},
         },
     ]
 
@@ -178,38 +192,25 @@ def list_tasks():
 @app.get("/tasks/{task_name}")
 def get_task(task_name: str):
     if task_name not in TASKS:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Task '{task_name}' not found. Available: {list(TASKS.keys())}",
-        )
+        raise HTTPException(status_code=404, detail=f"Task '{task_name}' not found.")
     meta = TASKS[task_name]
     return {
         "id":          task_name,
         "difficulty":  meta.get("difficulty", task_name),
         "description": meta["description"],
         "has_grader":  True,
-        "grader": {
-            "type": "llm",
-            "prompt_template": f"Score the rocket landing 0.0 to 1.0 for task: {task_name}",
-        },
+        "grader": {"type": "llm", "prompt_template": f"Score the rocket landing 0.0 to 1.0 for task: {task_name}"},
         "score_range": [0.0, 1.0],
-        "endpoint":    f"/tasks/{task_name}/run",
     }
 
 
 @app.post("/tasks/{task_name}/run")
 def run_task(task_name: str):
     if task_name not in TASKS:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Task '{task_name}' not found. Available: {list(TASKS.keys())}",
-        )
+        raise HTTPException(status_code=404, detail=f"Task '{task_name}' not found.")
     try:
         score = run_task_episode(task_name)
-        return {
-            "score": score,
-            "done":  True,
-        }
+        return {"score": score, "done": True}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
