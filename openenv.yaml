@@ -1,83 +1,18 @@
 name: rocket-landing-env
-version: "2.0.0"
-entrypoint: server.app:app        # ← ADD THIS
-type: http                         # ← ADD THIS
-spec_version: "1.0" 
+version: "1.0.0"
+spec_version: "1.0"
 description: >
-  A real-world-inspired autonomous rocket landing environment.
-  An LLM agent controls thrust, stabilization, and emergency burns
-  to safely land a descending rocket within a fixed step budget,
-  under stochastic wind and engine-failure conditions.
-
-author: Jainam Dedhia, Maher Dhami, Tirth Shah
-license: MIT
-
-environment:
-  class: RocketLandingEnv
-  module: environment
-
-api:
-  reset: /reset
-  step:  /step
-  state: /state
-  tasks: /tasks
-
-observation_space:
-  type: object
-  properties:
-    height:
-      type: number
-      description: "Altitude of the rocket in metres"
-    velocity:
-      type: number
-      description: "Vertical velocity (negative = descending)"
-    fuel:
-      type: number
-      description: "Remaining fuel fraction [0, 1]"
-    engine_status:
-      type: string
-      enum: [normal, failure]
-    wind:
-      type: number
-      description: "Lateral wind speed in m/s"
-    step:
-      type: integer
-      description: "Current step index"
-    max_steps:
-      type: integer
-      description: "Total steps allowed per episode"
-    last_action:
-      type: string
-      nullable: true
-
-action_space:
-  type: object
-  properties:
-    decision:
-      type: string
-      enum:
-        - increase_thrust
-        - decrease_thrust
-        - maintain
-        - stabilize
-        - emergency_burn
-
-reward:
-  type: number
-  range: [0.0, 1.0]
-  description: >
-    Per-step reward: weighted combination of altitude progress (40%),
-    velocity quality (30%), fuel conservation (15%), and landing bonus (15%).
-    Always strictly in [0.0, 1.0].
+  Autonomous rocket landing environment where an LLM agent controls
+  thrust to safely land a descending rocket.
 
 tasks:
   - id: easy
     difficulty: easy
     max_steps: 15
-    description: "Agent selects a valid and contextually appropriate action from the action space."
+    description: "Agent selects a valid and contextually appropriate action."
     grader:
       type: llm
-      prompt_template: "Score the rocket landing control 0.0 to 1.0 based on whether the agent selected a valid and contextually appropriate action given the current state (height, velocity, engine_status, wind). A perfect score means the action is both valid and optimal for the situation."
+      prompt_template: "Score the rocket landing 0.0 to 1.0 based on whether the agent selected a valid and contextually appropriate action given the current state."
 
   - id: medium
     difficulty: medium
@@ -85,22 +20,26 @@ tasks:
     description: "Agent applies height-aware and velocity-aware thrust decisions."
     grader:
       type: llm
-      prompt_template: "Score the rocket landing control 0.0 to 1.0 based on whether the agent applied correct height-aware and velocity-aware thrust strategy. High altitude should use maintain or gentle thrust; low altitude with fast descent requires increase_thrust. Engine failure must trigger emergency_burn."
+      prompt_template: "Score the rocket landing 0.0 to 1.0 based on whether the agent applied correct height-aware and velocity-aware thrust strategy."
 
   - id: hard
     difficulty: hard
     max_steps: 15
-    description: "Agent handles engine failure, high wind, low altitude, and velocity management simultaneously."
+    description: "Agent handles engine failure, wind, low altitude simultaneously."
     grader:
       type: llm
-      prompt_template: "Score the rocket landing control 0.0 to 1.0 based on how well the agent handled all simultaneous challenges: engine failure (must use emergency_burn), high wind (must use stabilize), low altitude with high descent velocity (must increase_thrust), and maintaining safe velocity near ground."
+      prompt_template: "Score the rocket landing 0.0 to 1.0 based on how well the agent handled engine failure, high wind, and low altitude simultaneously."
+
+api:
+  base_url: "https://unknownbrain-rocket-landing-openenv.hf.space"
+  reset: /reset
+  step: /step
+  state: /state
+  tasks: /tasks
 
 inference:
   script: inference.py
   runtime_limit_minutes: 20
-  resources:
-    vcpu: 2
-    memory_gb: 8
 
 docker:
   dockerfile: Dockerfile
