@@ -59,20 +59,41 @@ def state():
 
 @app.get("/tasks")
 def list_tasks():
-    return {
-        "tasks": [
-            {
-                "name":        name,
-                "description": meta["description"],
-                "grader":      meta["grader_name"],
-                "module":      meta["module"],
-                "score_range": [0.0, 1.0],
-                "endpoint":    f"/tasks/{name}/run",
+    return [
+        {
+            "id":          "easy",
+            "difficulty":  "easy",
+            "max_steps":   15,
+            "description": "Agent selects a valid and contextually appropriate action from the action space.",
+            "has_grader":  True,
+            "grader": {
+                "type": "llm",
+                "prompt_template": "Score the rocket landing control 0.0 to 1.0 based on whether the agent selected a valid and contextually appropriate action given the current state."
             }
-            for name, meta in TASKS.items()
-        ]
-    }
-
+        },
+        {
+            "id":          "medium",
+            "difficulty":  "medium",
+            "max_steps":   15,
+            "description": "Agent applies height-aware and velocity-aware thrust decisions.",
+            "has_grader":  True,
+            "grader": {
+                "type": "llm",
+                "prompt_template": "Score the rocket landing control 0.0 to 1.0 based on whether the agent applied correct height-aware and velocity-aware thrust strategy."
+            }
+        },
+        {
+            "id":          "hard",
+            "difficulty":  "hard",
+            "max_steps":   15,
+            "description": "Agent handles engine failure, high wind, low altitude, and velocity management simultaneously.",
+            "has_grader":  True,
+            "grader": {
+                "type": "llm",
+                "prompt_template": "Score the rocket landing control 0.0 to 1.0 based on how well the agent handled all simultaneous challenges: engine failure, high wind, low altitude, and velocity management."
+            }
+        }
+    ]
 
 @app.get("/tasks/{task_name}")
 def get_task(task_name: str):
@@ -102,11 +123,8 @@ def run_task(task_name: str):
     try:
         score = run_task_episode(task_name)
         return {
-            "task":        task_name,
-            "score":       score,
-            "score_range": [0.0, 1.0],
-            "grader":      TASKS[task_name]["grader_name"],
-            "module":      TASKS[task_name]["module"],
+            "score": score,
+            "done":  True,
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

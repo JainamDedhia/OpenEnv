@@ -12,9 +12,7 @@ from environment import RocketLandingEnv, Action
 # ── Config ────────────────────────────────────────────────────────────────────
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://openrouter.ai/api/v1")
 MODEL_NAME   = os.environ.get("MODEL_NAME",   "openai/gpt-4o-mini")
-HF_TOKEN=os.getenv("HF_TOKEN")
-API_KEY      = os.getenv("API_KEY")
-
+API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 TASK_NAME  = "rocket-landing"
 BENCHMARK  = "rocket-landing-openenv"
 MAX_STEPS  = 15
@@ -22,7 +20,7 @@ SUCCESS_SCORE_THRESHOLD = 0.6
 MAX_TOTAL_REWARD = MAX_STEPS
 
 if not API_KEY:
-    raise ValueError("API_KEY environment variable is required.")
+    raise ValueError("HF_TOKEN environment variable is required.")
 
 client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
