@@ -9,7 +9,6 @@ pinned: false
 tags:
   - openenv
 ---
-
 # 🚀 Rocket Landing OpenEnv
 
 An **OpenEnv-compliant** reinforcement learning environment where an AI agent

@@ -10,7 +10,6 @@ entrypoint: "environment:RocketLandingEnv"
 tags:
   - openenv
   - reinforcement-learning
-  - rocket-landing
 tasks:
   - id: easy
     difficulty: easy
