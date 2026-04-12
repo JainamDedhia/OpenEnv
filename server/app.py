@@ -1,6 +1,8 @@
 """
-server/app.py — OpenEnv-compliant FastAPI server for Rocket Landing environment.
-Uses openenv-core's create_app — auto-registers /health /metadata /schema /mcp /ws /reset /step /state
+server/app.py — Rocket Landing OpenEnv server.
+DO NOT use create_app() — it registers /metadata and /schema with its own
+response models that the hackathon validator does not recognise.
+We build a plain FastAPI app manually instead.
 """
 
 import sys
@@ -8,90 +10,37 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from openenv.core.env_server.http_server import create_app
-from openenv.core.env_server.interfaces import Environment
-from openenv.core.env_server.types import State
-from openenv.core.env_server.types import Action as OpenEnvAction
-from openenv.core.env_server.types import Observation as OpenEnvObservation
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
-from environment import RocketLandingEnv, Action, Reward
+from environment import RocketLandingEnv, Action as EnvAction, Reward
 from tasks import TASKS, run_task_episode
 
-from fastapi import HTTPException
 
+# ── Pydantic request/response models ─────────────────────────────────────────
 
-# ── Pydantic models for openenv-core ─────────────────────────────────────────
-
-class RocketAction(OpenEnvAction):
+class StepRequest(BaseModel):
     decision: str = "maintain"
 
 
-class RocketObservation(OpenEnvObservation):
-    height: float = 0.0
-    velocity: float = 0.0
-    fuel: float = 1.0
-    engine_status: str = "normal"
-    wind: float = 0.0
-    step: int = 0
-    max_steps: int = 15
+class ResetResponse(BaseModel):
+    height: float
+    velocity: float
+    fuel: float
+    engine_status: str
+    wind: float
+    step: int
+    max_steps: int
     last_action: str | None = None
-    reward: float | None = None
-    done: bool = False
 
 
-# ── Environment wrapper ───────────────────────────────────────────────────────
+# ── Shared env instance ───────────────────────────────────────────────────────
 
-class RocketEnvWrapper(Environment):
-    SUPPORTS_CONCURRENT_SESSIONS = True
-
-    def __init__(self):
-        super().__init__()
-        self._env = RocketLandingEnv()
-
-    def reset(self, **kwargs) -> RocketObservation:
-        obs = self._env.reset()
-        return RocketObservation(
-            height=obs.height,
-            velocity=obs.velocity,
-            fuel=obs.fuel,
-            engine_status=obs.engine_status,
-            wind=obs.wind,
-            step=obs.step,
-            max_steps=obs.max_steps,
-            last_action=obs.last_action,
-            reward=None,
-            done=False,
-        )
-
-    def step(self, action: RocketAction) -> RocketObservation:
-        env_action = Action(decision=action.decision)
-        obs, reward, done, _ = self._env.step(env_action)
-        return RocketObservation(
-            height=obs.height,
-            velocity=obs.velocity,
-            fuel=obs.fuel,
-            engine_status=obs.engine_status,
-            wind=obs.wind,
-            step=obs.step,
-            max_steps=obs.max_steps,
-            last_action=obs.last_action,
-            reward=reward.score,
-            done=done,
-        )
-
-    @property
-    def state(self) -> State:
-        try:
-            s = self._env.state()
-        except RuntimeError:
-            s = {}
-        return State(
-            episode_id="rocket-landing",
-            step_count=s.get("step", 0),
-        )
+_env = RocketLandingEnv()
 
 
-# ── Central task manifest — single source of truth, mirrors openenv.yaml ─────
+# ── Task manifest — single source of truth, same in /tasks /schema /metadata ─
 
 TASK_MANIFEST = [
     {
@@ -121,32 +70,29 @@ TASK_MANIFEST = [
 ]
 
 
-# ── Create app via openenv-core ───────────────────────────────────────────────
+# ── App ───────────────────────────────────────────────────────────────────────
 
-app = create_app(
-    RocketEnvWrapper,
-    RocketAction,
-    RocketObservation,
-    env_name="rocket-landing-env",
-    max_concurrent_envs=4,
+app = FastAPI(
+    title="Rocket Landing OpenEnv",
+    version="1.0.0",
+    description="Autonomous rocket landing environment for OpenEnv hackathon.",
 )
 
 
-# ── Endpoints ─────────────────────────────────────────────────────────────────
+# ── Health ────────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 def health():
     return {"status": "healthy"}
 
 
+# ── Metadata ──────────────────────────────────────────────────────────────────
+
 @app.get("/metadata")
 def metadata():
     return {
         "name": "rocket-landing-env",
         "version": "1.0.0",
-        "runtime": "fastapi",
-        "entrypoint": "environment:RocketLandingEnv",
-        "app": "server.app:app",
         "description": (
             "Autonomous rocket landing environment where an LLM agent "
             "controls thrust to safely land a descending rocket."
@@ -155,17 +101,40 @@ def metadata():
     }
 
 
+# ── Schema ────────────────────────────────────────────────────────────────────
+
 @app.get("/schema")
 def schema():
     return {
-        "name": "rocket-landing-env",
-        "version": "1.0.0",
-        "action": RocketAction.model_json_schema(),
-        "observation": RocketObservation.model_json_schema(),
+        "action": {
+            "type": "object",
+            "properties": {
+                "decision": {
+                    "type": "string",
+                    "enum": RocketLandingEnv.VALID_ACTIONS,
+                }
+            },
+            "required": ["decision"],
+        },
+        "observation": {
+            "type": "object",
+            "properties": {
+                "height": {"type": "number"},
+                "velocity": {"type": "number"},
+                "fuel": {"type": "number"},
+                "engine_status": {"type": "string"},
+                "wind": {"type": "number"},
+                "step": {"type": "integer"},
+                "max_steps": {"type": "integer"},
+                "last_action": {"type": ["string", "null"]},
+            },
+        },
         "state": {"type": "object"},
         "tasks": TASK_MANIFEST,
     }
 
+
+# ── Tasks ─────────────────────────────────────────────────────────────────────
 
 @app.get("/tasks")
 def list_tasks():
@@ -184,6 +153,50 @@ def run_task(task_name: str):
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
+
+# ── Reset ─────────────────────────────────────────────────────────────────────
+
+@app.post("/reset")
+def reset():
+    obs = _env.reset()
+    return obs.model_dump()
+
+
+# ── Step ──────────────────────────────────────────────────────────────────────
+
+@app.post("/step")
+def step(request: StepRequest):
+    try:
+        action = EnvAction(decision=request.decision)
+        obs, reward, done, info = _env.step(action)
+        return {
+            "observation": obs.model_dump(),
+            "reward": reward.score,
+            "done": done,
+            "info": info,
+        }
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+# ── State ─────────────────────────────────────────────────────────────────────
+
+@app.get("/state")
+def state():
+    try:
+        return _env.state()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+# ── MCP (required by openenv spec) ───────────────────────────────────────────
+
+@app.post("/mcp")
+def mcp():
+    return {"jsonrpc": "2.0", "result": {"status": "ok"}, "id": None}
+
+
+# ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():
     import uvicorn
