@@ -4,6 +4,7 @@ emoji: 🚀
 colorFrom: blue
 colorTo: red
 sdk: docker
+app_port: 7860
 pinned: false
 tags:
   - openenv
@@ -60,11 +61,11 @@ timestep: given sensor readings, what thrust command minimises landing error?
 
 ## Tasks & Graders
 
-| Task   | Difficulty | What is tested                                                      | Score range |
-|--------|------------|---------------------------------------------------------------------|-------------|
-| easy   | Easy       | Agent picks a valid, contextually appropriate action                | 0.0 – 1.0  |
-| medium | Medium     | Agent applies correct height-aware and velocity-aware thrust strategy | 0.0 – 1.0 |
-| hard   | Hard       | Agent handles engine failure + wind + low altitude simultaneously    | 0.0 – 1.0 |
+| Task   | Difficulty | What is tested                                                        | Score range |
+|--------|------------|-----------------------------------------------------------------------|-------------|
+| easy   | Easy       | Agent picks a valid, contextually appropriate action                  | 0.01 – 0.99 |
+| medium | Medium     | Agent applies correct height-aware and velocity-aware thrust strategy | 0.01 – 0.99 |
+| hard   | Hard       | Agent handles engine failure + wind + low altitude simultaneously     | 0.01 – 0.99 |
 
 All graders return graduated scores (not binary) to reward partial progress.
 
@@ -72,14 +73,16 @@ All graders return graduated scores (not binary) to reward partial progress.
 
 ## API Endpoints
 
-| Method | Path              | Description                              |
-|--------|-------------------|------------------------------------------|
-| GET    | `/`               | Health check → `{"status":"ok"}`         |
-| POST   | `/reset`          | Reset env, returns Observation           |
-| POST   | `/step`           | Advance one step with Action             |
-| GET    | `/state`          | Get raw current state dict               |
-| GET    | `/tasks`          | List all tasks with descriptions         |
-| POST   | `/tasks/{name}/run` | Run a full deterministic episode       |
+| Method | Path                | Description                              |
+|--------|---------------------|------------------------------------------|
+| GET    | `/health`           | Health check → `{"status":"healthy"}`    |
+| GET    | `/metadata`         | Environment metadata with task manifest  |
+| GET    | `/schema`           | Action/observation schemas + tasks       |
+| GET    | `/tasks`            | List all tasks with grader strings       |
+| POST   | `/reset`            | Reset env, returns Observation           |
+| POST   | `/step`             | Advance one step with Action             |
+| GET    | `/state`            | Get raw current state dict               |
+| POST   | `/tasks/{name}/run` | Run a full deterministic episode         |
 
 ---
 
@@ -135,11 +138,11 @@ docker run -p 7860:7860 \
 
 ## Environment Variables
 
-| Variable      | Description                              | Default                           |
-|---------------|------------------------------------------|-----------------------------------|
-| `API_BASE_URL`| OpenAI-compatible API base URL           | `https://openrouter.ai/api/v1`   |
-| `MODEL_NAME`  | Model identifier for inference           | `openai/gpt-4o-mini`             |
-| `HF_TOKEN`    | Hugging Face / API key (bearer token)    | *(must be set)*                   |
+| Variable       | Description                              | Default                           |
+|----------------|------------------------------------------|-----------------------------------|
+| `API_BASE_URL` | OpenAI-compatible API base URL           | `https://openrouter.ai/api/v1`   |
+| `MODEL_NAME`   | Model identifier for inference           | `openai/gpt-4o-mini`             |
+| `HF_TOKEN`     | Hugging Face / API key (bearer token)    | *(must be set)*                   |
 
 ---
 
@@ -165,7 +168,6 @@ docker run -p 7860:7860 \
 
 ```
 rocket-landing-openenv/
-├── app.py            ← symlink / alias (optional, for flat imports)
 ├── environment.py    # Core environment (reset/step/state + Pydantic models)
 ├── tasks.py          # Task graders (easy / medium / hard)
 ├── inference.py      # Baseline inference script (root, as required)

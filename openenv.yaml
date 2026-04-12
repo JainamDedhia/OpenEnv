@@ -1,52 +1,32 @@
+spec_version: 1
+type: space
+runtime: fastapi
+app: server.app:app
+port: 7860
 name: rocket-landing-env
 version: "1.0.0"
-spec_version: "1.0"
-description: >
-  Autonomous rocket landing environment where an LLM agent controls
-  thrust to safely land a descending rocket.
-
+description: "Autonomous rocket landing environment where an LLM agent controls thrust to safely land a descending rocket."
+entrypoint: "environment:RocketLandingEnv"
+tags:
+  - openenv
+  - reinforcement-learning
+  - rocket-landing
 tasks:
   - id: easy
-    name: "Easy Landing"
-    difficulty: "easy"
-    max_steps: 15
+    difficulty: easy
     description: "Agent selects a valid and contextually appropriate action."
     grader: "tasks:task_easy"
-
+    reward_range: [0.01, 0.99]
   - id: medium
-    name: "Medium Landing"
-    difficulty: "medium"
-    max_steps: 15
+    difficulty: medium
     description: "Agent applies height-aware and velocity-aware thrust decisions."
     grader: "tasks:task_medium"
-
+    reward_range: [0.01, 0.99]
   - id: hard
-    name: "Hard Landing"
-    difficulty: "hard"
-    max_steps: 15
+    difficulty: hard
     description: "Agent handles engine failure, wind, low altitude simultaneously."
     grader: "tasks:task_hard"
-
-  - id: fuel_management
-    name: "Fuel Management"
-    difficulty: "medium"
-    max_steps: 15
-    description: "Agent conserves fuel while maintaining safe descent velocity."
-    grader: "tasks:task_fuel_management"
-
-  - id: wind_compensation
-    name: "Wind Compensation"
-    difficulty: "medium"
-    max_steps: 15
-    description: "Agent compensates for high wind using stabilize and thrust decisions."
-    grader: "tasks:task_wind_compensation"
-
-  - id: precision_landing
-    name: "Precision Landing"
-    difficulty: "hard"
-    max_steps: 15
-    description: "Agent achieves precise near-ground velocity control for safe touchdown."
-    grader: "tasks:task_precision_landing"
+    reward_range: [0.01, 0.99]
 
 api:
   base_url: "https://unknownbrain-rocket-landing-openenv.hf.space"

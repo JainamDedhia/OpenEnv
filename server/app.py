@@ -1,6 +1,6 @@
 """
-server/app.py — Uses openenv-core's create_app, exactly like accepted submissions.
-This auto-registers: /health, /metadata, /schema, /mcp, /ws, /reset, /step, /state
+server/app.py — OpenEnv-compliant FastAPI server for Rocket Landing environment.
+Uses openenv-core's create_app — auto-registers /health /metadata /schema /mcp /ws /reset /step /state
 """
 
 import sys
@@ -39,7 +39,7 @@ class RocketObservation(OpenEnvObservation):
     done: bool = False
 
 
-# ── Environment wrapper implementing openenv interface ────────────────────────
+# ── Environment wrapper ───────────────────────────────────────────────────────
 
 class RocketEnvWrapper(Environment):
     SUPPORTS_CONCURRENT_SESSIONS = True
@@ -91,7 +91,37 @@ class RocketEnvWrapper(Environment):
         )
 
 
-# ── Create app via openenv (registers /health /metadata /schema /mcp /ws) ────
+# ── Central task manifest — single source of truth, mirrors openenv.yaml ─────
+
+TASK_MANIFEST = [
+    {
+        "id": "easy",
+        "difficulty": "easy",
+        "max_steps": 15,
+        "description": "Agent selects a valid and contextually appropriate action.",
+        "grader": "tasks:task_easy",
+        "reward_range": [0.01, 0.99],
+    },
+    {
+        "id": "medium",
+        "difficulty": "medium",
+        "max_steps": 15,
+        "description": "Agent applies height-aware and velocity-aware thrust decisions.",
+        "grader": "tasks:task_medium",
+        "reward_range": [0.01, 0.99],
+    },
+    {
+        "id": "hard",
+        "difficulty": "hard",
+        "max_steps": 15,
+        "description": "Agent handles engine failure, wind, low altitude simultaneously.",
+        "grader": "tasks:task_hard",
+        "reward_range": [0.01, 0.99],
+    },
+]
+
+
+# ── Create app via openenv-core ───────────────────────────────────────────────
 
 app = create_app(
     RocketEnvWrapper,
@@ -102,54 +132,52 @@ app = create_app(
 )
 
 
-# ── Task endpoints ────────────────────────────────────────────────────────────
+# ── Endpoints ─────────────────────────────────────────────────────────────────
+
+@app.get("/health")
+def health():
+    return {"status": "healthy"}
+
+
+@app.get("/metadata")
+def metadata():
+    return {
+        "name": "rocket-landing-env",
+        "version": "1.0.0",
+        "runtime": "fastapi",
+        "entrypoint": "environment:RocketLandingEnv",
+        "app": "server.app:app",
+        "description": (
+            "Autonomous rocket landing environment where an LLM agent "
+            "controls thrust to safely land a descending rocket."
+        ),
+        "tasks": TASK_MANIFEST,
+    }
+
+
+@app.get("/schema")
+def schema():
+    return {
+        "name": "rocket-landing-env",
+        "version": "1.0.0",
+        "action": RocketAction.model_json_schema(),
+        "observation": RocketObservation.model_json_schema(),
+        "state": {"type": "object"},
+        "tasks": TASK_MANIFEST,
+    }
+
 
 @app.get("/tasks")
 def list_tasks():
-    return [
-        {
-            "id": "easy", "difficulty": "easy", "max_steps": 15,
-            "description": "Agent selects a valid and contextually appropriate action.",
-            "has_grader": True,
-            "grader": {"type": "llm", "prompt_template": "Score the rocket landing 0.0 to 1.0 based on action validity."},
-        },
-        {
-            "id": "medium", "difficulty": "medium", "max_steps": 15,
-            "description": "Agent applies height-aware and velocity-aware thrust decisions.",
-            "has_grader": True,
-            "grader": {"type": "llm", "prompt_template": "Score the rocket landing 0.0 to 1.0 based on height and velocity strategy."},
-        },
-        {
-            "id": "hard", "difficulty": "hard", "max_steps": 15,
-            "description": "Agent handles engine failure, high wind, low altitude simultaneously.",
-            "has_grader": True,
-            "grader": {"type": "llm", "prompt_template": "Score the rocket landing 0.0 to 1.0 based on emergency handling."},
-        },
-        {
-            "id": "fuel_management", "difficulty": "medium", "max_steps": 15,
-            "description": "Agent conserves fuel while maintaining safe descent velocity.",
-            "has_grader": True,
-            "grader": {"type": "llm", "prompt_template": "Score the rocket landing 0.0 to 1.0 based on fuel efficiency."},
-        },
-        {
-            "id": "wind_compensation", "difficulty": "medium", "max_steps": 15,
-            "description": "Agent compensates for high wind using stabilize and thrust decisions.",
-            "has_grader": True,
-            "grader": {"type": "llm", "prompt_template": "Score the rocket landing 0.0 to 1.0 based on wind compensation."},
-        },
-        {
-            "id": "precision_landing", "difficulty": "hard", "max_steps": 15,
-            "description": "Agent achieves precise near-ground velocity control for safe touchdown.",
-            "has_grader": True,
-            "grader": {"type": "llm", "prompt_template": "Score the rocket landing 0.0 to 1.0 based on precision landing."},
-        },
-    ]
+    return TASK_MANIFEST
 
 
 @app.post("/tasks/{task_name}/run")
 def run_task(task_name: str):
     if task_name not in TASKS:
-        raise HTTPException(status_code=404, detail=f"Task '{task_name}' not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Task '{task_name}' not found."
+        )
     try:
         score = run_task_episode(task_name)
         return {"score": score, "done": True}
